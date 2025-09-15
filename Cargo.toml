@@ -1,6 +1,13 @@
 [package]
 name = "xdgdir"
 version = "0.1.0"
+authors = ["pyk <gm@pyk.sh>"]
 edition = "2024"
+description = "Resolves paths according to the XDG Base Directory Specification"
+documentation = "https://docs.rs/xdgdir"
+homepage = "https://github.com/pyk/xdgdir"
+repository = "https://github.com/pyk/xdgdir"
+license = "MIT"
+categories = ["config", "filesystem"]
 
 [dependencies]
