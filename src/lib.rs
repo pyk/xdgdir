@@ -83,6 +83,7 @@ impl BaseDir {
 
     fn from_context(context: &impl Context) -> Result<Self, Error> {
         let home = Self::get_home(context)?;
+        let bin = home.join(".local").join("bin");
         let data = Self::get_path(
             context,
             "XDG_DATA_HOME",
@@ -101,12 +102,12 @@ impl BaseDir {
 
         Ok(BaseDir {
             home,
+            bin,
             data,
             config,
             state,
             cache: PathBuf::new(),
             runtime: None,
-            bin: PathBuf::new(),
         })
     }
 
@@ -168,6 +169,14 @@ mod tests {
             Error::NotAbsolutePath("HOME".into(), "some/dir".into())
         );
         assert_eq!(report, "HOME=\"some/dir\" is not absolute path");
+    }
+
+    #[test]
+    fn bin() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.bin, PathBuf::from("/home/user/.local/bin"));
     }
 
     #[test]
