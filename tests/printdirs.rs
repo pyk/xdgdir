@@ -11,7 +11,6 @@ fn main() {
 
     match BaseDir::new(app_name) {
         Ok(dirs) => {
-            // Print each path in a simple, parseable key=value format.
             println!("home={}", dirs.home.display());
             println!("config={}", dirs.config.display());
             println!("data={}", dirs.data.display());
@@ -23,7 +22,6 @@ fn main() {
             }
         }
         Err(e) => {
-            // If it fails, print the error to stderr and exit.
             eprintln!("Error: {}", e);
             std::process::exit(1);
         }
