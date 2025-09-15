@@ -124,6 +124,20 @@ impl BaseDir {
     pub fn global() -> Result<Self, Error> {
         Self::from_context(&Env)
     }
+
+    pub fn new(app_name: &str) -> Result<Self, Error> {
+        let mut global_dirs = Self::global()?;
+
+        global_dirs.config.push(app_name);
+        global_dirs.data.push(app_name);
+        global_dirs.state.push(app_name);
+        global_dirs.cache.push(app_name);
+        if let Some(runtime_path) = global_dirs.runtime.as_mut() {
+            runtime_path.push(app_name);
+        }
+
+        Ok(global_dirs)
+    }
 }
 
 #[cfg(test)]
