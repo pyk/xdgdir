@@ -1,23 +1,72 @@
+//! Resolves paths according to the XDG Base Directory Specification.
+//!
+//! ## Overview
+//!
+//! `xdgdir` is a spec-compliant crate for locating user and system directories.
+//!
+//! - **Zero I/O**: The library performs no filesystem operations. It is a pure
+//!   path resolver, making it fast, predictable, and suitable for any context,
+//!   including async runtimes.
+//! - **Spec Compliant**: Correctly handles environment variables, empty
+//!   variables, and default fallbacks as defined by the spec.
+//! - **Simple API**: Provides a minimal, ergonomic API for the most common use
+//!   cases.
+//!
+//! ## Examples
+//!
+//! To get the set of directories for a specific application, use
+//! `BaseDir::new()`.
+//!
+//! ```rust
+//! use xdgdir::BaseDir;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let dirs = BaseDir::new("my-app")?;
+//!
+//! // Example output: /home/user/.config/my-app
+//! println!("Config file should be in: {}", dirs.config.display());
+//!
+//! // Example output: /home/user/.local/share/my-app
+//! println!("Data files should be in: {}", dirs.data.display());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! To get the raw, non-application-specific base directories, use
+//! `BaseDir::global()`.
+//!
+//! ## Errors
+//!
+//! The library functions return `Result<BaseDir, xdgdir::Error>`. Errors occur
+//! if the environment is misconfigured according to the spec's requirements.
+
 use std::{
     env,
     fmt,
     path::PathBuf,
 };
 
-pub trait Context {
+trait Context {
     fn get(&self, key: &str) -> Option<String>;
 }
 
-pub struct Env;
+struct Env;
 impl Context for Env {
     fn get(&self, key: &str) -> Option<String> {
         env::var(key).ok()
     }
 }
 
+/// An error that can occur when resolving XDG base directories.
 #[derive(Debug, PartialEq)]
 pub enum Error {
+    /// Returned if the `$HOME` environment variable is not set or is empty.
     HomeNotSet,
+    /// Returned if `$HOME` or an `XDG_*` variable contains a relative path,
+    /// which is disallowed by the specification.
+    ///
+    /// The inner values contain the name of the environment variable and the
+    /// invalid path.
     NotAbsolutePath(String, PathBuf),
 }
 
@@ -40,14 +89,32 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// A struct containing resolved XDG directories, representing either a global
+/// or an application-specific context.
+///
+/// It is constructed using either `BaseDir::global()` for non-app-specific
+/// paths or `BaseDir::new("app-name")` for application-specific paths.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BaseDir {
+    /// The user's home directory (`$HOME`).
     pub home: PathBuf,
+    /// The user-specific configuration directory.
+    /// Default: `$HOME/.config` (or `$XDG_CONFIG_HOME`).
     pub config: PathBuf,
+    /// The user-specific data directory.
+    /// Default: `$HOME/.local/share` (or `$XDG_DATA_HOME`).
     pub data: PathBuf,
+    /// The user-specific state directory.
+    /// Default: `$HOME/.local/state` (or `$XDG_STATE_HOME`).
     pub state: PathBuf,
+    /// The user-specific cache directory.
+    /// Default: `$HOME/.cache` (or `$XDG_CACHE_HOME`).
     pub cache: PathBuf,
+    /// The user-specific runtime directory (may not be set).
+    /// Path: `$XDG_RUNTIME_DIR`.
     pub runtime: Option<PathBuf>,
+    /// The directory for user-specific executables.
+    /// Path: `$HOME/.local/bin`.
     pub bin: PathBuf,
 }
 
@@ -121,10 +188,21 @@ impl BaseDir {
         })
     }
 
+    /// Resolves the global, non-application-specific XDG base directories.
+    ///
+    /// This constructor reads from the environment to determine the raw base
+    /// paths, such as `~/.config`. It is useful for manually constructing
+    /// paths.
     pub fn global() -> Result<Self, Error> {
         Self::from_context(&Env)
     }
 
+    /// A convenience constructor that resolves all XDG base directories for a
+    /// given application name.
+    ///
+    /// This is the recommended entry point for most applications. It is a
+    /// wrapper around `BaseDir::global()` that appends the application
+    /// name to the `config`, `data`, `state`, `cache`, and `runtime` paths.
     pub fn new(app_name: &str) -> Result<Self, Error> {
         let mut global_dirs = Self::global()?;
 
