@@ -104,6 +104,11 @@ impl BaseDir {
             "XDG_CACHE_HOME",
             home.join(".cache"),
         )?;
+        let runtime = match context.get("XDG_RUNTIME_DIR") {
+            None => Ok(None),
+            Some(path) if path.is_empty() => Ok(None),
+            Some(path) => Self::ensure_path("XDG_RUNTIME_DIR", path).map(Some),
+        }?;
 
         Ok(BaseDir {
             home,
@@ -112,7 +117,7 @@ impl BaseDir {
             config,
             state,
             cache,
-            runtime: None,
+            runtime,
         })
     }
 
@@ -310,5 +315,46 @@ mod tests {
         context.insert("XDG_CACHE_HOME", "/some/dir");
         let result = BaseDir::from_context(&context).unwrap();
         assert_eq!(result.cache, PathBuf::from("/some/dir"));
+    }
+
+    #[test]
+    fn xdg_runtime_dir_not_set() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.runtime, None);
+    }
+
+    #[test]
+    fn xdg_runtime_dir_empty() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_RUNTIME_DIR", "");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.runtime, None);
+    }
+
+    #[test]
+    fn xdg_runtime_dir_not_absolute() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_RUNTIME_DIR", "some/dir");
+        let result = BaseDir::from_context(&context);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
+        assert_eq!(
+            error,
+            Error::NotAbsolutePath("XDG_RUNTIME_DIR".into(), "some/dir".into())
+        );
+        assert_eq!(report, "XDG_RUNTIME_DIR=\"some/dir\" is not absolute path");
+    }
+
+    #[test]
+    fn xdg_runtime_dir_valid() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_RUNTIME_DIR", "/run/user/1000");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.runtime, Some(PathBuf::from("/run/user/1000")));
     }
 }
