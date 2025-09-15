@@ -99,6 +99,11 @@ impl BaseDir {
             "XDG_STATE_HOME",
             home.join(".local").join("state"),
         )?;
+        let cache = Self::get_path(
+            context, //
+            "XDG_CACHE_HOME",
+            home.join(".cache"),
+        )?;
 
         Ok(BaseDir {
             home,
@@ -106,7 +111,7 @@ impl BaseDir {
             data,
             config,
             state,
-            cache: PathBuf::new(),
+            cache,
             runtime: None,
         })
     }
@@ -273,5 +278,37 @@ mod tests {
         context.insert("XDG_STATE_HOME", "/some/dir");
         let result = BaseDir::from_context(&context).unwrap();
         assert_eq!(result.state, PathBuf::from("/some/dir"));
+    }
+
+    #[test]
+    fn xdg_cache_home_not_set() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.cache, PathBuf::from("/home/user/.cache"));
+    }
+
+    #[test]
+    fn xdg_cache_home_not_absolute() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_CACHE_HOME", "some/dir");
+        let result = BaseDir::from_context(&context);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
+        assert_eq!(
+            error,
+            Error::NotAbsolutePath("XDG_CACHE_HOME".into(), "some/dir".into())
+        );
+        assert_eq!(report, "XDG_CACHE_HOME=\"some/dir\" is not absolute path");
+    }
+
+    #[test]
+    fn xdg_cache_home_valid() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_CACHE_HOME", "/some/dir");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.cache, PathBuf::from("/some/dir"));
     }
 }
