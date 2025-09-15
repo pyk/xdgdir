@@ -93,4 +93,23 @@ mod tests {
         let result = BaseDir::from_context(&context);
         assert_eq!(result.unwrap_err(), Error::HomeNotSet);
     }
+
+    #[test]
+    fn home_empty() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "");
+        let result = BaseDir::from_context(&context);
+        assert_eq!(result.unwrap_err(), Error::HomeNotSet);
+    }
+
+    #[test]
+    fn home_not_absolute() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "some/dir");
+        let result = BaseDir::from_context(&context);
+        assert_eq!(
+            result.unwrap_err(),
+            Error::NotAbsolutePath(PathBuf::from("some/dir"))
+        );
+    }
 }
