@@ -1,6 +1,6 @@
 [package]
 name = "xdgdir"
-version = "0.1.0"
+version = "0.8.0"
 authors = ["pyk <gm@pyk.sh>"]
 edition = "2024"
 description = "Resolves paths according to the XDG Base Directory Specification"
