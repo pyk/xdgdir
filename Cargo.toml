@@ -10,4 +10,12 @@ repository = "https://github.com/pyk/xdgdir"
 license = "MIT"
 categories = ["config", "filesystem"]
 
+[[bin]]
+name = "printdirs"
+path = "tests/printdirs.rs"
+
 [dependencies]
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
