@@ -8,7 +8,7 @@
   async runtimes.
 - **Spec Compliant**: Correctly handles environment variables, empty variables,
   and default fallbacks as defined by the spec.
-- **Simple API:** Provides a minimal, ergonomic API for the most common use
+- **Simple API**: Provides a minimal, ergonomic API for the most common use
   cases.
 
 ## Getting started
