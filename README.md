@@ -1,7 +1,7 @@
 # xdgdir
 
 `xdgdir` helps you to resolves paths according to the
-[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html).
+[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/latest/).
 
 - **Zero I/O**: The library performs no filesystem operations. It is a pure path
   resolver, making it fast, predictable, and suitable for any context, including
