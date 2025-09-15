@@ -1,4 +1,8 @@
-use std::{env, fmt, path::PathBuf};
+use std::{
+    env,
+    fmt,
+    path::PathBuf,
+};
 
 pub trait Context {
     fn get(&self, key: &str) -> Option<String>;
@@ -14,17 +18,21 @@ impl Context for Env {
 #[derive(Debug, PartialEq)]
 pub enum Error {
     HomeNotSet,
-    NotAbsolutePath(PathBuf),
+    NotAbsolutePath(String, PathBuf),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::HomeNotSet => {
-                write!(f, "HOME environment variable not set or empty")
+                write!(f, "$HOME is not set or empty")
             }
-            Error::NotAbsolutePath(path) => {
-                write!(f, "'{path}' is not absolute path", path = path.display())
+            Error::NotAbsolutePath(key, path) => {
+                write!(
+                    f,
+                    "{key}=\"{path}\" is not absolute path",
+                    path = path.display()
+                )
             }
         }
     }
@@ -44,21 +52,47 @@ pub struct BaseDir {
 }
 
 impl BaseDir {
-    fn from_context(context: &impl Context) -> Result<Self, Error> {
-        let home = context.get("HOME").ok_or(Error::HomeNotSet)?;
-        if home.is_empty() {
-            return Err(Error::HomeNotSet);
+    fn ensure_path(key: &str, path: String) -> Result<PathBuf, Error> {
+        let path = PathBuf::from(path);
+        if path.is_absolute() {
+            Ok(path)
+        } else {
+            Err(Error::NotAbsolutePath(key.to_string(), path))
         }
+    }
 
-        let home_path = PathBuf::from(home);
-        if !home_path.is_absolute() {
-            return Err(Error::NotAbsolutePath(home_path));
+    fn get_home(context: &impl Context) -> Result<PathBuf, Error> {
+        match context.get("HOME") {
+            None => Err(Error::HomeNotSet),
+            Some(path) if path.is_empty() => Err(Error::HomeNotSet),
+            Some(path) => Self::ensure_path("HOME", path),
         }
+    }
+
+    fn get_path(
+        context: &impl Context,
+        key: &str,
+        default: PathBuf,
+    ) -> Result<PathBuf, Error> {
+        match context.get(key) {
+            None => Ok(default),
+            Some(path) if path.is_empty() => Ok(default),
+            Some(path) => Self::ensure_path(key, path),
+        }
+    }
+
+    fn from_context(context: &impl Context) -> Result<Self, Error> {
+        let home = Self::get_home(context)?;
+        let data = Self::get_path(
+            context,
+            "XDG_DATA_HOME",
+            home.join(".local").join("share"),
+        )?;
 
         Ok(BaseDir {
-            home: PathBuf::new(),
+            home: home,
+            data: data,
             config: PathBuf::new(),
-            data: PathBuf::new(),
             state: PathBuf::new(),
             cache: PathBuf::new(),
             runtime: None,
@@ -74,7 +108,11 @@ impl BaseDir {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{borrow::Borrow, collections::HashMap, hash::Hash};
+    use std::{
+        borrow::Borrow,
+        collections::HashMap,
+        hash::Hash,
+    };
 
     impl<K, S> Context for HashMap<K, S>
     where
@@ -91,7 +129,10 @@ mod tests {
         let mut context = HashMap::new();
         context.insert("DEBUG", "");
         let result = BaseDir::from_context(&context);
-        assert_eq!(result.unwrap_err(), Error::HomeNotSet);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
+        assert_eq!(error, Error::HomeNotSet);
+        assert_eq!(report, "$HOME is not set or empty");
     }
 
     #[test]
@@ -99,7 +140,10 @@ mod tests {
         let mut context = HashMap::new();
         context.insert("HOME", "");
         let result = BaseDir::from_context(&context);
-        assert_eq!(result.unwrap_err(), Error::HomeNotSet);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
+        assert_eq!(error, Error::HomeNotSet);
+        assert_eq!(report, "$HOME is not set or empty");
     }
 
     #[test]
@@ -107,9 +151,44 @@ mod tests {
         let mut context = HashMap::new();
         context.insert("HOME", "some/dir");
         let result = BaseDir::from_context(&context);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
         assert_eq!(
-            result.unwrap_err(),
-            Error::NotAbsolutePath(PathBuf::from("some/dir"))
+            error,
+            Error::NotAbsolutePath("HOME".into(), "some/dir".into())
         );
+        assert_eq!(report, "HOME=\"some/dir\" is not absolute path");
+    }
+
+    #[test]
+    fn xdg_data_home_not_set() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.data, PathBuf::from("/home/user/.local/share"));
+    }
+
+    #[test]
+    fn xdg_data_home_not_absolute() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_DATA_HOME", "some/dir");
+        let result = BaseDir::from_context(&context);
+        let error = result.unwrap_err();
+        let report = format!("{}", error);
+        assert_eq!(
+            error,
+            Error::NotAbsolutePath("XDG_DATA_HOME".into(), "some/dir".into())
+        );
+        assert_eq!(report, "XDG_DATA_HOME=\"some/dir\" is not absolute path");
+    }
+
+    #[test]
+    fn xdg_data_home_valid() {
+        let mut context = HashMap::new();
+        context.insert("HOME", "/home/user");
+        context.insert("XDG_DATA_HOME", "/some/dir");
+        let result = BaseDir::from_context(&context).unwrap();
+        assert_eq!(result.data, PathBuf::from("/some/dir"));
     }
 }
