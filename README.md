@@ -32,11 +32,8 @@ fn main() {
 
     println!("Config file should be in: {}", dirs.config.display());
     // -> /home/user/.config/my-app
-
     println!("Data files should be in: {}", dirs.data.display());
     // -> /home/user/.local/share/my-app
-
-    Ok(())
 }
 ```
 
@@ -51,11 +48,8 @@ fn main() {
 
     println!("Default user config dir: {}", global_dirs.config.display());
     // -> /home/user/.config
-
     println!("User executables dir: {}", global_dirs.bin.display());
     // -> /home/user/.local/bin
-
-    Ok(())
 }
 ```
 
